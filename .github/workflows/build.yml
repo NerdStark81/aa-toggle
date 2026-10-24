@@ -9,240 +9,39 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     steps:
-      - name: Compile APK Directly
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Generate Project and Build APK
         run: |
-          set -e
           mkdir -p app/src/main/java/com/custom/aatoggle
           mkdir -p app/src/main/res/xml
 
-          cat << 'EOF' > settings.gradle
-          pluginManagement {
-              repositories {
-                  google()
-                  mavenCentral()
-                  gradlePluginPortal()
-              }
-          }
-          dependencyResolutionManagement {
-              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
-          rootProject.name = "AAToggle"
-          include ':app'
-          EOF
+          printf 'pluginManagement {\n repositories {\n google()\n mavenCentral()\n gradlePluginPortal()\n }\n}\ndependencyResolutionManagement {\n repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)\n repositories {\n google()\n mavenCentral()\n }\n}\nrootProject.name = "AAToggle"\ninclude ":app"\n' > settings.gradle
 
-          cat << 'EOF' > build.gradle
-          plugins {
-              id 'com.android.application' version '8.2.2' apply false
-          }
-          EOF
+          printf 'plugins {\n id "com.android.application" version "8.2.2" apply false\n}\n' > build.gradle
 
-          cat << 'EOF' > gradle.properties
-          android.useAndroidX=true
-          org.gradle.jvmargs=-Xmx2048m
-          EOF
+          printf 'android.useAndroidX=true\norg.gradle.jvmargs=-Xmx2048m\n' > gradle.properties
 
-          cat << 'EOF' > app/build.gradle
-          plugins {
-              id 'com.android.application'
-          }
-          android {
-              namespace 'com.custom.aatoggle'
-              compileSdk 34
-              defaultConfig {
-                  applicationId "com.custom.aatoggle"
-                  minSdk 26
-                  targetSdk 34
-                  versionCode 1
-                  versionName "1.0"
-              }
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_17
-                  targetCompatibility JavaVersion.VERSION_17
-              }
-          }
-          EOF
+          printf 'plugins {\n id "com.android.application"\n}\nandroid {\n namespace "com.custom.aatoggle"\n compileSdk 34\n defaultConfig {\n applicationId "com.custom.aatoggle"\n minSdk 26\n targetSdk 34\n versionCode 1\n versionName "1.0"\n }\n compileOptions {\n sourceCompatibility JavaVersion.VERSION_17\n targetCompatibility JavaVersion.VERSION_17\n }\n}\n' > app/build.gradle
 
-          cat << 'EOF' > app/src/main/AndroidManifest.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <application
-                  android:label="AA Wireless"
-                  android:icon="@android:drawable/stat_sys_data_bluetooth"
-                  android:theme="@android:style/Theme.Translucent.NoTitleBar">
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n <application android:label="AA Wireless" android:icon="@android:drawable/stat_sys_data_bluetooth" android:theme="@android:style/Theme.Translucent.NoTitleBar">\n <activity android:name=".TriggerActivity" android:exported="true" android:excludeFromRecents="true" android:noHistory="true">\n <intent-filter>\n <action android:name="android.intent.action.MAIN" />\n <category android:name="android.intent.category.LAUNCHER" />\n </intent-filter>\n </activity>\n <service android:name=".ToggleAccessibilityService" android:exported="true" android:label="AA Wireless Auto-Toggle" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">\n <intent-filter>\n <action android:name="android.accessibilityservice.AccessibilityService" />\n </intent-filter>\n <meta-data android:name="android.accessibilityservice" android:resource="@xml/accessibility_service_config" />\n </service>\n </application>\n</manifest>\n' > app/src/main/AndroidManifest.xml
 
-                  <activity
-                      android:name=".TriggerActivity"
-                      android:exported="true"
-                      android:excludeFromRecents="true"
-                      android:noHistory="true">
-                      <intent-filter>
-                          <action android:name="android.intent.action.MAIN" />
-                          <category android:name="android.intent.category.LAUNCHER" />
-                      </intent-filter>
-                  </activity>
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android" android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged" android:accessibilityFeedbackType="feedbackGeneric" android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows" android:canPerformGestures="true" android:canRetrieveWindowContent="true" android:notificationTimeout="100" />\n' > app/src/main/res/xml/accessibility_service_config.xml
 
-                  <service
-                      android:name=".ToggleAccessibilityService"
-                      android:exported="true"
-                      android:label="AA Wireless Auto-Toggle"
-                      android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-                      <intent-filter>
-                          <action android:name="android.accessibilityservice.AccessibilityService" />
-                      </intent-filter>
-                      <meta-data
-                          android:name="android.accessibilityservice"
-                          android:resource="@xml/accessibility_service_config" />
-                  </service>
-              </application>
-          </manifest>
-          EOF
+          printf 'package com.custom.aatoggle;\nimport android.app.Activity;\nimport android.content.ComponentName;\nimport android.content.Intent;\nimport android.os.Bundle;\nimport android.provider.Settings;\nimport android.text.TextUtils;\nimport android.widget.Toast;\npublic class TriggerActivity extends Activity {\n @Override\n protected void onCreate(Bundle savedInstanceState) {\n super.onCreate(savedInstanceState);\n if (!isAccessibilityEnabled()) {\n Toast.makeText(this, "Abilita AA Wireless Auto-Toggle in Accessibilita", Toast.LENGTH_LONG).show();\n Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);\n intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);\n startActivity(intent);\n finish();\n return;\n }\n ToggleAccessibilityService.shouldToggle = true;\n ToggleAccessibilityService.scrollAttempts = 0;\n try {\n Intent intent = new Intent();\n intent.setComponent(new ComponentName("com.google.android.projection.gearhead", "com.google.android.projection.gearhead.companion.settings.DefaultSettingsActivity"));\n intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);\n startActivity(intent);\n } catch (Exception e) {\n try {\n Intent fallback = new Intent("com.google.android.gms.car.PROJECTION_SETTINGS");\n fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);\n startActivity(fallback);\n } catch (Exception ex) {\n Toast.makeText(this, "Impossibile aprire Android Auto", Toast.LENGTH_SHORT).show();\n ToggleAccessibilityService.shouldToggle = false;\n }\n }\n finish();\n }\n private boolean isAccessibilityEnabled() {\n String service = getPackageName() + "/" + ToggleAccessibilityService.class.getCanonicalName();\n String enabledServices = Settings.Secure.getString(getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);\n if (enabledServices != null) {\n TextUtils.SimpleStringSplitter splitter = new TextUtils.SimpleStringSplitter(\x27:\x27);\n splitter.setString(enabledServices);\n while (splitter.hasNext()) {\n if (splitter.next().equalsIgnoreCase(service)) return true;\n }\n }\n return false;\n }\n}\n' > app/src/main/java/com/custom/aatoggle/TriggerActivity.java
 
-          cat << 'EOF' > app/src/main/res/xml/accessibility_service_config.xml
-          <?xml version="1.0" encoding="utf-8"?>
-          <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-              android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
-              android:accessibilityFeedbackType="feedbackGeneric"
-              android:accessibilityFlags="flagDefault|flagRetrieveInteractiveWindows"
-              android:canPerformGestures="true"
-              android:canRetrieveWindowContent="true"
-              android:notificationTimeout="100" />
-          EOF
+          printf 'package com.custom.aatoggle;\nimport android.accessibilityservice.AccessibilityService;\nimport android.os.Handler;\nimport android.os.Looper;\nimport android.view.accessibility.AccessibilityEvent;\nimport android.view.accessibility.AccessibilityNodeInfo;\nimport android.widget.Toast;\nimport java.util.List;\npublic class ToggleAccessibilityService extends AccessibilityService {\n public static boolean shouldToggle = false;\n public static int scrollAttempts = 0;\n private final Handler handler = new Handler(Looper.getMainLooper());\n @Override\n public void onAccessibilityEvent(AccessibilityEvent event) {\n if (!shouldToggle) return;\n AccessibilityNodeInfo root = getRootInActiveWindow();\n if (root == null) return;\n List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByText("Modalit\u00e0 wireless di Android Auto");\n if (nodes == null || nodes.isEmpty()) {\n nodes = root.findAccessibilityNodeInfosByText("Android Auto wireless");\n }\n if (nodes != null && !nodes.isEmpty()) {\n for (AccessibilityNodeInfo node : nodes) {\n if (clickNodeOrParent(node)) {\n shouldToggle = false;\n Toast.makeText(this, "Modalita Wireless commutata!", Toast.LENGTH_SHORT).show();\n handler.postDelayed(() -> performGlobalAction(GLOBAL_ACTION_HOME), 350);\n return;\n }\n }\n }\n if (scrollAttempts < 5) {\n AccessibilityNodeInfo scrollable = findScrollableNode(root);\n if (scrollable != null) {\n scrollAttempts++;\n scrollable.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);\n }\n }\n }\n private boolean clickNodeOrParent(AccessibilityNodeInfo node) {\n AccessibilityNodeInfo current = node;\n while (current != null) {\n if (current.isClickable() || current.isCheckable()) {\n return current.performAction(AccessibilityNodeInfo.ACTION_CLICK);\n }\n current = current.getParent();\n }\n return false;\n }\n private AccessibilityNodeInfo findScrollableNode(AccessibilityNodeInfo root) {\n if (root == null) return null;\n if (root.isScrollable()) return root;\n for (int i = 0; i < root.getChildCount(); i++) {\n AccessibilityNodeInfo res = findScrollableNode(root.getChild(i));\n if (res != null) return res;\n }\n return null;\n }\n @Override\n public void onInterrupt() {}\n}\n' > app/src/main/java/com/custom/aatoggle/ToggleAccessibilityService.java
 
-          cat << 'EOF' > app/src/main/java/com/custom/aatoggle/TriggerActivity.java
-          package com.custom.aatoggle;
+          wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
+          unzip -q gradle-8.5-bin.zip
+          ./gradle-8.5/bin/gradle assembleDebug --no-daemon
 
-          import android.app.Activity;
-          import android.content.ComponentName;
-          import android.content.Intent;
-          import android.os.Bundle;
-          import android.provider.Settings;
-          import android.text.TextUtils;
-          import android.widget.Toast;
-
-          public class TriggerActivity extends Activity {
-              @Override
-              protected void onCreate(Bundle savedInstanceState) {
-                  super.onCreate(savedInstanceState);
-
-                  if (!isAccessibilityEnabled()) {
-                      Toast.makeText(this, "Abilita 'AA Wireless Auto-Toggle' in Accessibilità", Toast.LENGTH_LONG).show();
-                      Intent intent = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-                      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                      startActivity(intent);
-                      finish();
-                      return;
-                  }
-
-                  ToggleAccessibilityService.shouldToggle = true;
-                  ToggleAccessibilityService.scrollAttempts = 0;
-
-                  try {
-                      Intent intent = new Intent();
-                      intent.setComponent(new ComponentName(
-                          "com.google.android.projection.gearhead",
-                          "com.google.android.projection.gearhead.companion.settings.DefaultSettingsActivity"
-                      ));
-                      intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-                      startActivity(intent);
-                  } catch (Exception e) {
-                      try {
-                          Intent fallback = new Intent("com.google.android.gms.car.PROJECTION_SETTINGS");
-                          fallback.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                          startActivity(fallback);
-                      } catch (Exception ex) {
-                          Toast.makeText(this, "Impossibile aprire Android Auto", Toast.LENGTH_SHORT).show();
-                          ToggleAccessibilityService.shouldToggle = false;
-                      }
-                  }
-                  finish();
-              }
-
-              private boolean isAccessibilityEnabled() {
-                  String service = getPackageName() + "/" + ToggleAccessibilityService.class.getCanonicalName();
-                  String enabledServices = Settings.Secure.getString(
-                      getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-                  if (enabledServices != null) {
-                      TextUtils.SimpleStringSplitter splitter = new TextUtils.SimpleStringSplitter(':');
-                      splitter.setString(enabledServices);
-                      while (splitter.hasNext()) {
-                          if (splitter.next().equalsIgnoreCase(service)) {
-                              return true;
-                          }
-                      }
-                  }
-                  return false;
-              }
-          }
-          EOF
-
-          cat << 'EOF' > app/src/main/java/com/custom/aatoggle/ToggleAccessibilityService.java
-          package com.custom.aatoggle;
-
-          import android.accessibilityservice.AccessibilityService;
-          import android.os.Handler;
-          import android.os.Looper;
-          import android.view.accessibility.AccessibilityEvent;
-          import android.view.accessibility.AccessibilityNodeInfo;
-          import android.widget.Toast;
-          import java.util.List;
-
-          public class ToggleAccessibilityService extends AccessibilityService {
-              public static boolean shouldToggle = false;
-              public static int scrollAttempts = 0;
-              private final Handler handler = new Handler(Looper.getMainLooper());
-
-              @Override
-              public void onAccessibilityEvent(AccessibilityEvent event) {
-                  if (!shouldToggle) return;
-
-                  AccessibilityNodeInfo root = getRootInActiveWindow();
-                  if (root == null) return;
-
-                  List<AccessibilityNodeInfo> nodes = root.findAccessibilityNodeInfosByText("Modalità wireless di Android Auto");
-                  if (nodes == null || nodes.isEmpty()) {
-                      nodes = root.findAccessibilityNodeInfosByText("Android Auto wireless");
-                  }
-
-                  if (nodes != null && !nodes.isEmpty()) {
-                      for (AccessibilityNodeInfo node : nodes) {
-                          if (clickNodeOrParent(node)) {
-                              shouldToggle = false;
-                              Toast.makeText(this, "Modalità Wireless commutata!", Toast.LENGTH_SHORT).show();
-                              handler.postDelayed(() -> performGlobalAction(GLOBAL_ACTION_HOME), 350);
-                              return;
-                          }
-                      }
-                  }
-
-                  if (scrollAttempts < 5) {
-                      AccessibilityNodeInfo scrollable = findScrollableNode(root);
-                      if (scrollable != null) {
-                          scrollAttempts++;
-                          scrollable.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
-                      }
-                  }
-              }
-
-              private boolean clickNodeOrParent(AccessibilityNodeInfo node) {
-                  AccessibilityNodeInfo current = node;
-                  while (current != null) {
-                      if (current.isClickable() || current.isCheckable()) {
-                          return current.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                      }
-                      current = current.getParent();
-                  }
-                  return false;
-              }
-
-              private AccessibilityNodeInfo findScrollableNode(AccessibilityNodeInfo root) {
-                  if (root == null) return null;
-                  if (root.isScrollable()) return root;
-                  for (int i = 0; i < root.getChildCount(); i++) {
-                      AccessibilityNodeInfo res = findScrollableNode(root.getChild(i));
-                      if (res != null) return res;
-                  }
-                  return
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AA_Wireless_Toggle_APK
+          path: app/build/outputs/apk/debug/app-debug.apk
