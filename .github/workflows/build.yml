@@ -226,7 +226,6 @@ jobs:
                       }
                   }
 
-                  // Se l'opzione è più in basso nella pagina, scorre in automatico
                   if (scrollAttempts < 5) {
                       AccessibilityNodeInfo scrollable = findScrollableNode(root);
                       if (scrollable != null) {
@@ -262,9 +261,10 @@ jobs:
           }
           EOF
 
-      - name: Build Debug APK with Gradle
+      - name: Setup Gradle and Build APK
         uses: gradle/actions/setup-gradle@v3
         with:
+          gradle-version: '8.5'
           arguments: assembleDebug
 
       - name: Upload APK Artifact
